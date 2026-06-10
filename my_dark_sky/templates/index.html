@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Dark Sky</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%); min-height: 100vh; font-family: 'Segoe UI', sans-serif; }
+    .glass { background: rgba(255,255,255,0.07); backdrop-filter: blur(16px); border: 1px solid rgba(255,255,255,0.12); }
+    .btn-main { background: linear-gradient(135deg, #3b82f6, #6366f1); transition: all 0.2s; }
+    .btn-main:hover { transform: translateY(-1px); opacity: 0.9; }
+    .stat-card { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 16px; text-align: center; }
+  </style>
+</head>
+<body class="text-white">
+  <header class="px-6 py-4 flex items-center justify-between border-b border-white/10">
+    <a href="/" class="text-2xl font-bold">🌌 My Dark Sky</a>
+    <span class="text-sm text-white/40">weather, rediscovered</span>
+  </header>
+  <main class="max-w-5xl mx-auto px-4 py-10">
+    <div class="text-center mb-10">
+      <h1 class="text-4xl font-bold mb-2">Know Before You Go</h1>
+      <p class="text-white/50">Current weather, future forecasts, or a trip back in time.</p>
+    </div>
+    <div class="glass rounded-2xl p-6 mb-8 max-w-2xl mx-auto">
+      <form method="get" action="/">
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm text-white/60 mb-1">City</label>
+            <input type="text" name="city" value="{{ city }}" placeholder="Baku, Paris, Tokyo..."
+              class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-white/30 focus:outline-none focus:border-blue-400">
+            <input type="hidden" id="lat-input" name="lat">
+            <input type="hidden" id="lon-input" name="lon">
+          </div>
+          <div>
+            <label class="block text-sm text-white/60 mb-1">Date</label>
+            <input type="date" name="date" value="{{ selected_date }}"
+              class="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white focus:outline-none focus:border-blue-400">
+          </div>
+        </div>
+        <div class="flex gap-3 mt-4">
+          <button type="submit" class="btn-main flex-1 rounded-xl py-3 font-semibold text-white shadow-lg">🔍 Search</button>
+          <button type="button" onclick="locateMe()" class="flex-1 bg-white/10 hover:bg-white/20 border border-white/20 rounded-xl py-3 font-semibold transition">📍 My Location</button>
+        </div>
+      </form>
+    </div>
+    {% if error %}
+    <div class="glass rounded-xl px-5 py-4 mb-6 border-l-4 border-yellow-400 text-yellow-200 max-w-2xl mx-auto">⚠️ {{ error }}</div>
+    {% endif %}
+    {% if location and weather %}
+    <div class="glass rounded-2xl p-6">
+      <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
+        <div>
+          <h2 class="text-3xl font-bold">{{ location.name }}{% if location.country %}, {{ location.country }}{% endif %}</h2>
+          <p class="text-white/50 mt-1">
+            {{ weather.date }}
+            {% if mode == "history" %}· <span class="text-purple-300">Historical</span>{% else %}· <span class="text-blue-300">Forecast</span>{% endif %}
+            {% if cached %}· <span class="text-green-300 text-xs">⚡ cached</span>{% endif %}
+          </p>
+        </div>
+        <div class="text-6xl">{{ weather.icon }}</div>
+      </div>
+      <div class="flex items-end gap-4 mb-6">
+        <span class="text-7xl font-thin">{{ weather.temp_max }}°</span>
+        <div class="pb-3">
+          <p class="text-2xl font-semibold">{{ weather.description }}</p>
+          <p class="text-white/50">Low {{ weather.temp_min }}°C · Feels {{ weather.feels_max }}°/{{ weather.feels_min }}°C</p>
+        </div>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+        <div class="stat-card"><p class="text-2xl mb-1">💧</p><p class="text-lg font-bold">{{ weather.rain }} mm</p><p class="text-xs text-white/40">Precipitation</p></div>
+        <div class="stat-card"><p class="text-2xl mb-1">💨</p><p class="text-lg font-bold">{{ weather.wind }} km/h</p><p class="text-xs text-white/40">Wind Speed</p></div>
+        <div class="stat-card"><p class="text-2xl mb-1">🌅</p><p class="text-lg font-bold">{{ weather.sunrise.split("T")[-1] if weather.sunrise else "—" }}</p><p class="text-xs text-white/40">Sunrise</p></div>
+        <div class="stat-card"><p class="text-2xl mb-1">🌇</p><p class="text-lg font-bold">{{ weather.sunset.split("T")[-1] if weather.sunset else "—" }}</p><p class="text-xs text-white/40">Sunset</p></div>
+        {% if weather.uv is not none %}<div class="stat-card sm:col-span-2"><p class="text-2xl mb-1">🔆</p><p class="text-lg font-bold">{{ weather.uv }}</p><p class="text-xs text-white/40">UV Index</p></div>{% endif %}
+      </div>
+      {% if current %}
+      <div class="border-t border-white/10 pt-4">
+        <p class="text-sm text-white/40 uppercase tracking-wider mb-3">Live Conditions</p>
+        <div class="flex flex-wrap gap-4 text-sm">
+          <span>🌡️ {{ current.temperature_2m }}°C</span>
+          <span>💧 {{ current.relative_humidity_2m }}% humidity</span>
+          <span>☁️ {{ current.cloud_cover }}% cloud</span>
+          <span>🌧️ {{ current.precipitation }} mm</span>
+          <span>💨 {{ current.wind_speed_10m }} km/h</span>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </main>
+  <footer class="text-center text-white/20 text-xs py-6">Powered by Open-Meteo · My Dark Sky</footer>
+  <script>
+    function locateMe() {
+      if (!navigator.geolocation) { alert("Geolocation not supported."); return; }
+      navigator.geolocation.getCurrentPosition(function(pos) {
+        document.getElementById("lat-input").value = pos.coords.latitude;
+        document.getElementById("lon-input").value = pos.coords.longitude;
+        document.querySelector("input[name='city']").value = "";
+        document.querySelector("form").submit();
+      }, function() { alert("Could not get your location."); });
+    }
+  </script>
+</body>
+</html>
