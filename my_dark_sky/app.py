@@ -142,10 +142,13 @@ def index():
             return render_template("index.html", **ctx)
         ctx.update(location=location, weather=daily, current=current,
                    mode=mode, cached=(from_cache or weather_cached))
-    except requests.RequestException:
-        ctx["error"] = "Could not reach weather service. Try again later."
+   except requests.RequestException as e:
+        import traceback; traceback.print_exc()
+        ctx["error"] = f"Could not reach weather service: {e}"
     except Exception as e:
+        import traceback; traceback.print_exc()
         ctx["error"] = f"Unexpected error: {e}"
+        
     return render_template("index.html", **ctx)
 
 
