@@ -9,7 +9,7 @@ app = Flask(__name__)
 
 CACHE_DIR = "cache"
 CACHE_PATH = os.path.join(CACHE_DIR, "data.json")
-CACHE_TTL = 300
+CACHE_TTL = 3600  # 1 hour: lessens load on the API and avoids 429 limits
 
 # Каждое значение — кортеж (описание, иконка), потому что parse_daily
 # распаковывает его в две переменные: desc, icon = WMO_CODES.get(...)
@@ -46,7 +46,15 @@ def fetch_with_cache(url, params):
     entry = store.get(key)
     if entry and (now - entry["ts"]) < CACHE_TTL:
         return entry["payload"], True
-    resp = requests.get(url, params=params, timeout=10)
+    headers = {"User-Agent": "MyDarkSky/1.0 (weather app)"}
+    resp = None
+    # Retry a few times if the API replies 429 (Too Many Requests)
+    for attempt in range(3):
+        resp = requests.get(url, params=params, headers=headers, timeout=15)
+        if resp.status_code == 429:
+            time.sleep(2 * (attempt + 1))
+            continue
+        break
     resp.raise_for_status()
     result = resp.json()
     store[key] = {"ts": now, "payload": result}
