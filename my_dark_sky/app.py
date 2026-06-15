@@ -11,15 +11,18 @@ CACHE_DIR = "cache"
 CACHE_PATH = os.path.join(CACHE_DIR, "data.json")
 CACHE_TTL = 300
 
+# Каждое значение — кортеж (описание, иконка), потому что parse_daily
+# распаковывает его в две переменные: desc, icon = WMO_CODES.get(...)
 WMO_CODES = {
-    0: ("Clear Sky"), 1: ("Mostly Clear"), 2: ("Partly Cloudy"),
-    3: ("Overcast"), 45: ("Foggy"), 48: ("Icy Fog"),
-    51: ("Light Drizzle"), 53: ("Drizzle"), 55: ("Heavy Drizzle"),
-    61: ("Light Rain"), 63: ("Rain"), 65: ("Heavy Rain"),
-    71: ("Light Snow"), 73: ("Snow"), 75: ("Heavy Snow"),
-    80: ("Light Showers"), 81: ("Showers"), 82: ("Heavy Showers"),
-    95: ("Thunderstorm"), 96: ("Thunderstorm + Hail"), 99: ("Severe Thunderstorm"),
+    0: ("Clear Sky", "☀️"), 1: ("Mostly Clear", "🌤️"), 2: ("Partly Cloudy", "⛅"),
+    3: ("Overcast", "☁️"), 45: ("Foggy", "🌫️"), 48: ("Icy Fog", "🌫️"),
+    51: ("Light Drizzle", "🌦️"), 53: ("Drizzle", "🌦️"), 55: ("Heavy Drizzle", "🌧️"),
+    61: ("Light Rain", "🌦️"), 63: ("Rain", "🌧️"), 65: ("Heavy Rain", "🌧️"),
+    71: ("Light Snow", "🌨️"), 73: ("Snow", "❄️"), 75: ("Heavy Snow", "❄️"),
+    80: ("Light Showers", "🌦️"), 81: ("Showers", "🌧️"), 82: ("Heavy Showers", "🌧️"),
+    95: ("Thunderstorm", "⛈️"), 96: ("Thunderstorm + Hail", "⛈️"), 99: ("Severe Thunderstorm", "⛈️"),
 }
+
 
 def read_cache():
     os.makedirs(CACHE_DIR, exist_ok=True)
@@ -29,10 +32,12 @@ def read_cache():
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
+
 def write_cache(data):
     os.makedirs(CACHE_DIR, exist_ok=True)
     with open(CACHE_PATH, "w") as f:
         json.dump(data, f)
+
 
 def fetch_with_cache(url, params):
     store = read_cache()
@@ -48,6 +53,7 @@ def fetch_with_cache(url, params):
     write_cache(store)
     return result, False
 
+
 def find_location(city):
     data, cached = fetch_with_cache(
         "https://geocoding-api.open-meteo.com/v1/search",
@@ -59,6 +65,7 @@ def find_location(city):
     r = results[0]
     return {"name": r.get("name", city), "country": r.get("country", ""),
             "lat": r["latitude"], "lon": r["longitude"]}, cached
+
 
 def fetch_weather(lat, lon, target_date):
     today = date.today()
@@ -81,11 +88,14 @@ def fetch_weather(lat, lon, target_date):
     data, cached = fetch_with_cache(url, params)
     return data, cached, mode
 
+
 def parse_daily(data):
     d = data.get("daily", {})
     if not d or not d.get("time"):
         return None
     code = (d.get("weather_code") or [0])[0]
+    if code is None:
+        code = 0
     desc, icon = WMO_CODES.get(code, ("Unknown", "🌡️"))
     return {
         "date": d["time"][0], "icon": icon, "description": desc,
@@ -99,6 +109,7 @@ def parse_daily(data):
         "sunset": (d.get("sunset") or [""])[0],
         "uv": (d.get("uv_index_max") or [None])[0],
     }
+
 
 @app.route("/")
 def index():
@@ -136,6 +147,7 @@ def index():
     except Exception as e:
         ctx["error"] = f"Unexpected error: {e}"
     return render_template("index.html", **ctx)
+
 
 if __name__ == "__main__":
     app.run(debug=True)
