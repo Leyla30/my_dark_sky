@@ -7,7 +7,8 @@ from datetime import date, datetime
 
 app = Flask(__name__)
 
-CACHE_DIR = "cache"
+import tempfile
+CACHE_DIR = os.path.join(tempfile.gettempdir(), "mydarksky_cache")
 CACHE_PATH = os.path.join(CACHE_DIR, "data.json")
 CACHE_TTL = 3600  # 1 hour: lessens load on the API and avoids 429 limits
 
@@ -25,18 +26,23 @@ WMO_CODES = {
 
 
 def read_cache():
-    os.makedirs(CACHE_DIR, exist_ok=True)
     try:
+        os.makedirs(CACHE_DIR, exist_ok=True)
         with open(CACHE_PATH, "r") as f:
             return json.load(f)
-    except (FileNotFoundError, json.JSONDecodeError):
+    except (FileNotFoundError, json.JSONDecodeError, OSError):
         return {}
 
 
 def write_cache(data):
-    os.makedirs(CACHE_DIR, exist_ok=True)
-    with open(CACHE_PATH, "w") as f:
-        json.dump(data, f)
+    # On serverless hosts (e.g. Vercel) the filesystem is read-only.
+    # If we can't write the cache, just skip it instead of crashing.
+    try:
+        os.makedirs(CACHE_DIR, exist_ok=True)
+        with open(CACHE_PATH, "w") as f:
+            json.dump(data, f)
+    except OSError:
+        pass
 
 
 def fetch_with_cache(url, params):
